@@ -1,0 +1,1068 @@
+import java.util.*;
+import java.io.*;
+import java.math.*;
+
+/**
+ * Auto-generated code below aims at helping you parse
+ * the standard input according to the problem statement.
+ **/
+class Player {
+
+    public static void main(String args[]) {
+        Scanner in = new Scanner(System.in);
+        IUltimateBoard board = new UltimateBoard();
+        Random g = new Random();
+
+        // game loop
+        while (true) {
+            List<Move> moves = new ArrayList<>();
+            int opponentRow = in.nextInt();
+            int opponentCol = in.nextInt();
+            Move opp = new Move(opponentRow, opponentCol);
+            int validActionCount = in.nextInt();
+            for (int i = 0; i < validActionCount; i++) {
+                int row = in.nextInt();
+                int col = in.nextInt();
+                moves.add(new Move(row, col));
+            }
+
+            // Write an action using System.out.println()
+            // To debug: System.err.println("Debug messages...");
+
+            // check if it's the first time we play
+            if(opponentRow == -1 && opponentCol == -1){
+                // just pick a move at random;
+                Move move = moves.get(g.nextInt(moves.size()));
+                board.play(move, 1);
+                System.out.println(move);
+            }else{
+                // play the opp move
+                board.play(opp, 0);
+                if(board.getCurrentLocalBoard().isGameOver()){
+                    System.err.println("redirected to a full board opp");
+                    List<IBoard> boards = board.getAvailableBoard();
+                    IBoard selected = boards.get(g.nextInt(boards.size()));
+                    board.setCurrentBoard(selected);
+                }
+                Move best = Strategies.findBestMoveMCTSUltimate(board);
+                board.play(best, 1);
+                System.out.println(best);
+                // System.err.println("played opp");
+                // check if the local board we are on is valide for play
+                // if so, run min max on the board find the best, transforme it
+                // System.err.println("Origin after opp = " + board.getCurrentLocalBoard().getOrigin());
+
+                /* if(!board.getCurrentLocalBoard().isGameOver()){
+                    Move best = Strategies.findBestMoveMCTSUltimate(board);
+                    /// System.err.println("> local best = " + best + " origin = " + board.getCurrentLocalBoard().getOrigin());
+                    // transform the move to global then play it
+                    // Move bestInGlobal = board.toGlobalMove(best, board.getCurrentLocalBoard().getOrigin());
+                    board.play(best, 1);
+                    System.out.println(best);
+                }else{
+                    // System.err.println("In block");
+                    // for staters pick a random board and run min max on it
+                    // List<IBoard> available = board.getAvailableBoard();
+                    // IBoard current = available.get(g.nextInt(available.size()));
+                    // board.setCurrentBoard(current);
+                    // System.err.println("Origin 2 = " + board.getCurrentLocalBoard().getOrigin());
+                    // run min max
+                    Move best = Strategies.findBestMoveMCTSUltimate(board);
+                    // System.err.println("local best = " + best);
+                    // Move bestInGlobal = board.toGlobalMove(best, board.getCurrentLocalBoard().getOrigin());
+                    board.play(best, 1);
+                    System.out.println(best);
+                }*/
+            }
+
+
+        }
+    }
+}
+
+class Strategies {
+    private static final int MAX_DEPTH = 6;
+    // 1 : AI
+    // 0 : human
+
+    public static Move findBestMove(IBoard board){
+        int bestScore = Integer.MIN_VALUE;
+        Move bestMove = null;
+        List<Move> moves = board.availableMoves();
+        for(Move move : moves){
+            board.play(move, 1);
+            // run min max
+            int score = minMax(board,false, MAX_DEPTH, Integer.MIN_VALUE, Integer.MAX_VALUE);
+            //System.out.println("Score = " + score + " move = "+ move);
+            if(score > bestScore){
+                bestMove = move;
+                bestScore = score;
+            }
+            // undo
+            board.undoMove(move);
+        }
+        return bestMove;
+    }
+    public static int minMax(IBoard board, boolean isMax){
+        // check if we are in a leaf
+        if(board.isGameOver()){
+            return eval(board);
+        }
+        // else, apply the min max
+        List<Move> moves = board.availableMoves();
+        if (isMax){
+            int highest = Integer.MIN_VALUE;
+            for(Move move : moves){
+                board.play(move, 1);
+                highest = Math.max(highest, minMax(board, false));
+                board.undoMove(move);
+            }
+            return highest;
+        }else{
+            int lowest = Integer.MAX_VALUE;
+            for(Move move : moves){
+                board.play(move, 0);
+                lowest = Math.min(lowest, minMax(board, true));
+                board.undoMove(move);
+            }
+            return lowest;
+        }
+    }
+    public static int minMax(IBoard board, boolean isMax, int depth){
+        // check if we are in a leaf
+        if(board.isGameOver()){
+            return eval(board, depth);
+        }
+        // else, apply the min max
+        List<Move> moves = board.availableMoves();
+        if (isMax){
+            int highest = Integer.MIN_VALUE;
+            for(Move move : moves){
+                board.play(move, 1);
+                highest = Math.max(highest, minMax(board, false, depth - 1));
+                board.undoMove(move);
+            }
+            return highest;
+        }else{
+            int lowest = Integer.MAX_VALUE;
+            for(Move move : moves){
+                board.play(move, 0);
+                lowest = Math.min(lowest, minMax(board, true, depth - 1));
+                board.undoMove(move);
+            }
+            return lowest;
+        }
+    }
+    public static int minMax(IBoard board, boolean isMax, int depth, int alpha, int beta){
+        // check if we are in a leaf
+        if(board.isGameOver()){
+            return eval(board, depth);
+        }
+        // else, apply the min max
+        List<Move> moves = board.availableMoves();
+        if (isMax){
+            int highest = Integer.MIN_VALUE;
+            for(Move move : moves){
+                board.play(move, 1);
+                highest = Math.max(highest, minMax(board, false, depth - 1, alpha, beta));
+                board.undoMove(move);
+                alpha = Math.max(highest, alpha);
+                // no need to continue
+                if(alpha >= beta) return highest;
+
+            }
+            return highest;
+        }else{
+            int lowest = Integer.MAX_VALUE;
+            for(Move move : moves){
+                board.play(move, 0);
+                lowest = Math.min(lowest, minMax(board, true, depth - 1, alpha, beta));
+                board.undoMove(move);
+                beta = Math.min(lowest, beta);
+                // no need to continue
+                if(alpha >= beta) return lowest;
+            }
+            return lowest;
+        }
+    }
+    private static int eval(IBoard board, int depth) {
+        int winner = board.getWinner();
+        if (winner == 1) {
+            return 10 + depth;
+        } else if (winner == 0) {
+            return -10 - depth;
+        }
+        return 0;
+    }
+    private static int eval(IBoard board) {
+        int winner = board.getWinner();
+        if (winner == 1) {
+            return 10;
+        } else if (winner == 0) {
+            return -10;
+        }
+        return 0;
+    }
+
+
+    public static <T extends IBoard> Move findBestMoveMCTS(T board){
+        long start = System.currentTimeMillis();
+        Node<T> root = new Node<>(board, null, board.getLastMove(), board.getLastPlayer(), new ArrayList<>());
+        while(System.currentTimeMillis() - start < 50){
+
+            // selection
+            Node<T> promisingNode = selectPromisingNode(root);
+            // expansion
+            if(!promisingNode.getBoard().isGameOver()){
+                expandNode(promisingNode);
+            }
+            // simulation
+            Node<T> toExplore = promisingNode;
+            if(toExplore.getNodes().size() > 0){
+                toExplore = toExplore.getRandomChildNode();
+            }
+            int result = randomPlayOut(toExplore);
+            backpropagation(toExplore, result);
+            // update
+        }
+        Node<T> best = root.getChildWithMaxWinScore();
+
+        return best.getMove();
+    }
+
+    public static Move findBestMoveMCTSUltimate(IUltimateBoard board){
+        long start = System.currentTimeMillis();
+        boolean isFirst = false;
+        Node<IUltimateBoard> root = new Node<>(board, null, board.getLastMove(), 0, new ArrayList<>());
+        while(System.currentTimeMillis() - start < 80){
+
+            // selection
+            Node<IUltimateBoard> promisingNode = selectPromisingNode(root);
+            // expansion
+            if(!promisingNode.getBoard().isGameOver()){
+                expandNodeUltimate(promisingNode, isFirst);
+                isFirst = false;
+            }
+            // simulation
+            Node<IUltimateBoard> toExplore = promisingNode;
+            if(toExplore.getNodes().size() > 0){
+                toExplore = toExplore.getRandomChildNode();
+            }
+            int result = randomPlayOutUltimate(toExplore);
+            backpropagation(toExplore, result);
+            // update
+        }
+        System.err.println(root.getNodes().size());
+        Node<IUltimateBoard> best = root.getChildWithMaxWinScore();
+
+        return best.getMove();
+    }
+
+
+    private static <T extends IBoard>  void backpropagation(Node<T> toExplore, int result) {
+            // int opp = toExplore.getPlayer() == 1 ? 0: 1;
+            Node<T> node = toExplore;
+            while (node != null){
+                node.incrementVisit();
+                if(node.getPlayer() == result){
+                        node.setWinScore(node.getWinScore() + 10);
+                }
+                node = node.getParent();
+            }
+    }
+
+
+
+    private static <T extends IBoard> int randomPlayOut(Node<T> toExplore) {
+        // System.err.println("In playout");
+        Node<T> temp = toExplore.copy();
+        IBoard current = temp.getBoard();
+        int winner = current.getWinner();
+        int opponent = current.getLastPlayer() == 1 ? 0: 1;
+
+        Random gen = new Random();
+        int player = opponent == 1 ? 0 : 1;
+
+        List<Move> moves = current.availableMoves();
+        Move m;
+        int tries = 4;
+        while (!current.isGameOver() && !moves.isEmpty() && tries > 0){
+            m = moves.get(gen.nextInt(moves.size()));
+            current.play(m, player);
+            moves = current.availableMoves();
+            winner = current.getWinner();
+            player = player == 1 ? 0: 1;
+            tries --;
+        }
+        // System.err.println("Done play");
+        return winner;
+    }
+
+    private static  int randomPlayOutUltimate(Node<IUltimateBoard> toExplore) {
+        // System.err.println("In playout");
+
+        Node<IUltimateBoard> temp = toExplore.copy();
+
+        IBoard current = temp.getBoard().getCurrentLocalBoard();
+
+        int winner = temp.getBoard().getWinner();
+        int opponent = temp.getBoard().getLastPlayer() == 1 ? 0: 1;
+        if(winner == opponent){
+            temp.getParent().setWinScore(Integer.MIN_VALUE);
+            return winner;
+        }
+
+        Random gen = new Random();
+        int player = temp.getBoard().getLastPlayer() == 1 ? 0 : 1;
+
+        List<Move> moves = current.availableMoves();
+
+        // System.err.println("Size = " + moves.size());
+
+        // System.out.println(current.getOrigin());
+
+        Move m;
+        int tries = 4;
+
+        //System.err.println("boards l = " + boards.size());
+
+        while (!temp.getBoard().isGameOver()){
+           // System.err.println("is over in local " + temp.getBoard().getCurrentLocalBoard().isGameOver());
+            if(temp.getBoard().getCurrentLocalBoard().isGameOver() && !temp.getBoard().getAvailableBoard().isEmpty()){
+              List<IBoard> boards = temp.getBoard().getAvailableBoard();
+              IBoard selected = boards.get(gen.nextInt(boards.size()));
+              temp.getBoard().setCurrentBoard(selected);
+              moves = temp.getBoard().getCurrentLocalBoard().availableMoves();
+
+
+            } else if(temp.getBoard().getAvailableBoard().isEmpty()) return temp.getBoard().getWinner();
+
+            m = moves.get(gen.nextInt(moves.size()));
+            // System.err.println("Origin " + temp.getBoard().getCurrentLocalBoard().getOrigin());
+            // Move global = temp.getBoard().toGlobalMove(m, temp.getBoard().getCurrentLocalBoard().getOrigin());
+            temp.getBoard().play(m, player);
+
+            moves = temp.getBoard().getCurrentLocalBoard().availableMoves();
+            winner = temp.getBoard().getWinner();
+            player = player == 1 ? 0: 1;
+            tries --;
+        }
+        // System.err.println("Done play");
+        return winner;
+    }
+
+    private static <T extends IBoard>  void expandNode(Node<T> promisingNode) {
+        // System.err.println("In expand");
+        int opponent = promisingNode.getBoard().getLastPlayer() == 1 ? 0:1;
+        List<T> states = new ArrayList<>();
+        T current = promisingNode.getBoard();
+
+        for(Move m : current.availableMoves()){
+            T state = (T) current.copy();
+            state.play(m, 1);
+            states.add(state);
+        }
+
+        // System.err.println("states size = " + states.size());
+
+        for(T state : states){
+            Node<T> node = new Node<>(state, promisingNode, state.getLastMove(), state.getLastPlayer(), new ArrayList<>());
+            promisingNode.getNodes().add(node);
+        }
+        // System.err.println("Done expand");
+
+    }
+
+    private static  void expandNodeUltimate(Node<IUltimateBoard> promisingNode, boolean isFirst) {
+        // System.err.println("In expand");
+        int opponent = promisingNode.getBoard().getLastPlayer() == 1 ? 0 : 1;
+        // System.err.println("Opp = " + opponent + " " + promisingNode.getBoard().getLastPlayer() );
+
+        List<IUltimateBoard> states = new ArrayList<>();
+        IUltimateBoard current = promisingNode.getBoard();
+
+
+        for(Move m : current.getCurrentLocalBoard().availableMoves()){
+            IUltimateBoard state = (IUltimateBoard) current.copy();
+            state.play(m, opponent);
+           if(!state.getCurrentLocalBoard().isGameOver()) states.add(state);
+        }
+
+
+        // System.err.println("states size = " + states.size());
+
+        for(IUltimateBoard state : states){
+            Node<IUltimateBoard> node = new Node<>(state, promisingNode, state.getLastMove(), state.getLastPlayer(), new ArrayList<>());
+            promisingNode.getNodes().add(node);
+        }
+        // System.err.println("Done expand");
+
+    }
+
+    private static <T extends IBoard>  Node<T> selectPromisingNode(Node<T> root) {
+        Node<T> node = root;
+        while (node.getNodes().size() != 0){
+            node = UCT.findBestNodeWithUCT(node);
+        }
+        return node;
+    }
+}
+
+ class UCT {
+
+    public static double uct(int totalVisit, double nodeWinScore, int nodeVisit){
+        if (nodeVisit == 0) {
+            return Integer.MAX_VALUE;
+        }
+        return (nodeWinScore / (double) nodeVisit) + 1.41 * Math.sqrt(Math.log(totalVisit) / (double) nodeVisit);
+    }
+
+    public static <T extends IBoard> Node findBestNodeWithUCT(Node<T> node){
+        int parentVisits = node.getVisitCount();
+        return Collections.max(node.getNodes(), new Comparator<Node>() {
+            @Override
+            public int compare(Node o1, Node o2) {
+                return Double.compare(uct(parentVisits, o1.getWinScore(), o1.getVisitCount()),
+                        uct(parentVisits, o2.getWinScore(), o2.getVisitCount()));
+            }
+        });
+
+    }
+}
+
+class Node<T extends IBoard> {
+    private Node<T> parent;
+    private List<Node<T>> nodes;
+    private Move move;
+    private int player;
+    private int visitCount;
+    private double winScore;
+    private T board;
+    private final Random gen = new Random();
+    public Node(T board ,Node<T> parent, Move move, int player, List<Node<T>> nodes) {
+        this.board = board;
+        this.visitCount = 0;
+        this.winScore = 0.0;
+        this.player = player;
+        this.parent = parent;
+        this.move = move;
+        this.nodes = nodes;
+    }
+
+    public Node(T board, Node<T> parent) {
+        this(board, parent,null, -1, new ArrayList<>());
+    }
+
+    public Node(T board) {
+        this(board,null);
+    }
+
+
+    public Node<T> getParent() {
+        return parent;
+    }
+
+    public List<Node<T>> getNodes() {
+        return nodes;
+    }
+
+    public Move getMove() {
+        return move;
+    }
+
+    public int getPlayer() {
+        return board.getLastPlayer();
+    }
+
+    public int getVisitCount() {
+        return visitCount;
+    }
+
+    public double getWinScore() {
+        return winScore;
+    }
+
+    public T getBoard() {
+        return board;
+    }
+
+    public Node<T> getRandomChildNode(){
+        return nodes.get(gen.nextInt(nodes.size()));
+    }
+    public Node<T> getChildWithMaxWinScore(){
+        return Collections.max(nodes, new Comparator<Node>() {
+            @Override
+            public int compare(Node o1, Node o2) {
+                return Double.compare(o1.winScore, o2.winScore);
+            }
+        });
+    }
+
+    public Node<T> copy(){
+        List<Node<T>> nodes = new ArrayList<>(this.nodes);
+
+        return new Node<T>((T) board.copy(), parent == null ? null : parent.copy(), move, player, nodes);
+    }
+
+    public void setParent(Node<T> parent) {
+        this.parent = parent;
+    }
+
+    public void setNodes(List<Node<T>> nodes) {
+        this.nodes = nodes;
+    }
+
+    public void setMove(Move move) {
+        this.move = move;
+    }
+
+    public void setPlayer(int player) {
+        this.player = player;
+    }
+
+    public void setVisitCount(int visitCount) {
+        this.visitCount = visitCount;
+    }
+
+    public void setWinScore(double winScore) {
+        this.winScore = winScore;
+    }
+
+    public void setBoard(T board) {
+        this.board = board;
+    }
+
+    public void incrementVisit() {
+        visitCount++;
+    }
+}
+
+class Board implements IBoard{
+
+    // representing the board
+    private int[][] board;
+    private final int DIM = 3;
+    // keep track of the winner
+    private boolean hasBeenWon = false;
+    private Move lastMove = null;
+    private Move origin = new Move(0, 0);
+    private int lastPlayer = -1;
+
+    public Board(){
+        board = new int[DIM][DIM];
+
+        for (int i = 0; i < DIM; i++) {
+            for (int j = 0; j < DIM; j++) {
+                board[i][j] = -1;
+            }
+        }
+    }
+
+    private Board(int [][] b, Move lastMove, int lastPlayer, Move origin){
+        this.board = b;
+        this.lastMove = lastMove;
+        this.lastPlayer = lastPlayer;
+        this.origin = origin;
+    }
+
+    public Board(Move o){
+        this();
+        origin = o;
+    }
+
+    @Override
+    public void setLastPlayer(int player) {
+        lastPlayer = player;
+    }
+
+    @Override
+    public Move getOrigin() {
+        return origin;
+    }
+
+    @Override
+    public void play(Move move, int player) {
+        lastMove = move;
+        lastPlayer = player;
+        // play the move
+        board[move.getRow()][move.getCol()] = player;
+        // check the win
+        hasBeenWon = hasPlayerWon(player);
+    }
+
+    @Override
+    public int getLastPlayer() {
+        return lastPlayer;
+    }
+
+    @Override
+    public Move getLastMove() {
+        return lastMove;
+    }
+
+    @Override
+    public int getWinner() {
+        return findWinner();
+    }
+
+    @Override
+    public void undoMove(Move m) {
+        // System.out.println("Undoing the move = "+ m);
+        // undo the move
+        board[m.getRow()][m.getCol()] = -1;
+        // check if we still have a winner, otherwise set hasBeenWon to false
+        //winner = findWinner();
+        // update the state
+        // hasBeenWon = winner != -1;
+    }
+
+    // return the winner or -1 if there is none
+    private int findWinner(){
+        for (int i = 0; i < DIM; i++) {
+            // check rows
+            if (board[i][0] > -1 && board[i][0] == board[i][1] && board[i][0] == board[i][2]) {
+                return board[i][2];
+            }
+
+            // check cols
+            if (board[0][i] > -1 && board[0][i] == board[1][i] && board[0][i] == board[2][i]) {
+                return board[2][i];
+            }
+        }
+        // check diags
+        if (board[0][0] > -1 && board[0][0] == board[1][1] && board[0][0] == board[2][2]) {
+            return board[2][2];
+        }
+        if (board[2][0] > -1 && board[2][0] == board[1][1] && board[2][0] == board[0][2]) {
+            return board[0][2];
+        }
+        return -1;
+    }
+
+    @Override
+    public boolean hasPlayerWon(int player) {
+        return  player == findWinner();
+    }
+
+    @Override
+    public boolean isGameOver() {
+        return isDraw() || (findWinner() != -1);
+    }
+
+    @Override
+    public boolean isDraw() {
+        for (int i = 0; i < DIM; i++) {
+            for (int j = 0; j < DIM; j++) {
+                if(board[i][j] == -1){
+                   return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public List<Move> availableMoves() {
+        List<Move> moves = new ArrayList<>();
+        for (int i = 0; i < DIM; i++) {
+            for (int j = 0; j < DIM; j++) {
+                if(board[i][j] == -1){
+                    moves.add(new Move(i + origin.getRow(), j + origin.getCol()));
+                }
+            }
+        }
+        return moves;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < DIM; i++) {
+            for (int j = 0; j < DIM; j++) {
+                builder.append("|").append(board[i][j]);
+            }
+            builder.append("|\n");
+        }
+        return builder.toString();
+    }
+
+    @Override
+    public IBoard copy() {
+        int [][] b = new int[DIM][DIM];
+        for (int i = 0; i < DIM; i++) {
+            for (int j = 0; j < DIM; j++) {
+               b [i][j] = board[i][j];
+            }
+        }
+        return new Board(b, lastMove, lastPlayer, origin);
+    }
+
+
+}
+
+class UltimateBoard implements IUltimateBoard{
+
+    private final int DIM = 3;
+    // the board of board
+    private final IBoard[][] boards;
+    // keep track of the local wins
+    private final int[][] wins;
+    // keep track of the origins of each local board in the global board
+    private final List<Move> origins;
+    // keep track of the current local board, on which the game is played
+    private  IBoard current;
+    // keep track of the next board based on the previous move
+    private  IBoard next;
+    // keep track of the previous board that led to the current board
+    private IBoard previous;
+    private boolean undoHappened;
+    private Move lastMove = null;
+    private int lastPlayer = -1;
+    private boolean useNext = true;
+
+
+    public UltimateBoard() {
+        // init the global board
+        boards = new Board[DIM][DIM];
+        wins = new int[DIM][DIM];
+        origins = new ArrayList<>();
+        current = null;
+        next = null;
+        previous = null;
+        undoHappened = false;
+        for (int i = 0; i < DIM; i++) {
+            for (int j = 0; j < DIM; j++) {
+                // System.out.println("Position = " + i + " " + j + " Origin = " + new Move(i * 3, j * 3));
+                boards[i][j] = new Board(new Move(i * 3, j * 3));
+                origins.add(new Move(i * 3, j * 3));
+                wins[i][j] = -1;
+            }
+        }
+
+        // System.out.println(origins);
+
+    }
+
+    public UltimateBoard(IBoard[][] boards, int[][] wins,
+                         List<Move> origins, IBoard current,
+                         IBoard next, IBoard previous,
+                         boolean undoHappened,
+                         Move lastMove, int lastPlayer) {
+        this.boards = boards;
+        this.wins = wins;
+        this.origins = origins;
+        this.current = current;
+        this.next = next;
+        this.previous = previous;
+        this.undoHappened = undoHappened;
+        this.lastPlayer = lastPlayer;
+        this.lastMove = lastMove;
+    }
+
+    @Override
+    public IBoard getLocalBoard(Move global) {
+        Move local = toLocalMove(global);
+        return boards[local.getRow()][local.getCol()];
+    }
+
+    @Override
+    public void play(Move move, int player) {
+        // if local board has not been determined before
+        // find the origin of the local board where the move is meant to be played
+        // transform the move to a local move and play it
+        // the next board is determined by the coordinates of the local move
+        // if local board has already been selected
+        // do the similar transformations
+        // determine the next board based on the move
+        // System.err.println("To play = " + move);
+
+        /* if(lastMove != null && previous != null && (boards[previous.getOrigin().getRow() / DIM ][previous.getOrigin().getCol() / DIM].isGameOver())){
+            // find the new local board based on the origin of the move
+            Move origin = findOriginOfLocalBoardByMove(move);
+            int currentX = origin.getRow() / DIM;
+            int currentY = origin.getCol() / DIM;
+            //System.err.println("Last board is full " + move +
+            //       " should be played at the local board located at = " + currentX + " " + currentY);
+            current = boards[currentX][currentY];
+
+        }*/
+
+        lastMove = move;
+        lastPlayer = player;
+
+        if(current == null){
+            Move origin = findOriginOfLocalBoardByMove(move);
+            int currentX = origin.getRow() / DIM;
+            int currentY = origin.getCol() / DIM;
+            //System.err.println("Move = " + move +
+               //     " should be played at the local board located at = " + currentX + " " + currentY);
+            current = boards[currentX][currentY];
+        }
+        // System.err.println("Current origin = " + current.getOrigin());
+        Move local = new Move(move.getRow() - current.getOrigin().getRow(), move.getCol() - current.getOrigin().getCol());
+        // System.err.println("Current local board is located at = "
+        //      + current.getOrigin().getRow() / DIM + " "+ current.getOrigin().getCol() / DIM );
+        current.play(local, player);
+
+        if(current.getWinner() == player){
+            wins[local.getRow()][local.getCol()] = player;
+            // System.err.println(player + " has won in "+ local);
+
+        }
+        // update the next and the previous
+        previous = current;
+        // System.err.println("prev board is located at  origin = " + previous.getOrigin());
+        current = boards[local.getRow()][local.getCol()];
+
+        // System.err.println("Next board is located at "+ local + " origin = " + current.getOrigin());
+        undoHappened = false;
+        useNext = true;
+    }
+
+    @Override
+    public IBoard getPreviousBoard() {
+        return previous;
+    }
+
+    @Override
+    public void undoMove(Move m) {
+        //System.out.println("Move " + m + " has been undone");
+        undoHappened = true;
+        // the move is in global coordinates
+        // all we have to do is
+        // transform it to a local coordinates and undo the move at the current grid
+        Move local = toLocalMove(m);
+        //System.out.println("Current local board is located at = "
+        // + current.getOrigin().getRow() / DIM + " "+ current.getOrigin().getCol() / DIM );
+        current.undoMove(local);
+        current = previous;
+        //System.out.println("Falling back to the previous board which located at " + current.getOrigin().getRow() / DIM + " "+ current.getOrigin().getCol() / DIM);
+
+    }
+
+    @Override
+    public void setCurrentBoard(IBoard board) {
+        current = board;
+        useNext = false;
+    }
+
+    @Override
+    public boolean hasPlayerWon(int player) {
+        return findWinner() == player;
+    }
+
+    private int findWinner() {
+        for (int i = 0; i < DIM; i++) {
+            // check rows
+            if (wins[i][0] > -1 && wins[i][0] == wins[i][1] && wins[i][0] == wins[i][2]) {
+                return wins[i][2];
+            }
+
+            // check cols
+            if (wins[0][i] > -1 && wins[0][i] == wins[1][i] && wins[0][i] == wins[2][i]) {
+                return wins[2][i];
+            }
+        }
+        // check diags
+        if (wins[0][0] > -1 && wins[0][0] == wins[1][1] && wins[0][0] == wins[2][2]) {
+            return wins[2][2];
+        }
+        if (wins[2][0] > -1 && wins[2][0] == wins[1][1] && wins[2][0] == wins[0][2]) {
+            return wins[0][2];
+        }
+        return -1;
+    }
+
+    @Override
+    public int getWinner() {
+        return findWinner();
+    }
+
+    @Override
+    public boolean isGameOver() {
+        return isDraw() || (findWinner() != -1);
+    }
+
+    @Override
+    public boolean isDraw() {
+        for (int i = 0; i < DIM; i++) {
+            for (int j = 0; j < DIM; j++) {
+                if(!boards[i][j].isDraw()) return false;
+            }
+        }
+        return true;
+    }
+
+   @Override
+    public List<Move> availableMoves() {
+        List<Move> moves = new ArrayList<>();
+        for(IBoard board : getAvailableBoard()){
+            if(!board.isGameOver()){
+                moves.addAll(board.availableMoves());
+            }
+        }
+        return moves;
+    }
+
+    @Override
+    public Move getOrigin() {
+        return new Move(0,0);
+    }
+
+    @Override
+    public Move toLocalMove(Move global) {
+        Move origin = findOriginOfLocalBoardByMove(global);
+
+        return new Move(global.getRow() - origin.getRow(), global.getCol() - origin.getCol());
+    }
+
+    @Override
+    public Move findOriginOfLocalBoardByMove(Move global) {
+        for(Move o : origins){
+            if((o.getRow() <= global.getRow() &&  global.getRow()< o.getRow() + DIM)
+                    && (o.getCol() <= global.getCol() && global.getCol() < o.getCol() + DIM)){
+                return o;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public Move toGlobalMove(Move local, Move origin) {
+
+        return new Move(local.getRow() + origin.getRow(), local.getCol() + origin.getCol()) ;
+    }
+
+    @Override
+    public IBoard getCurrentLocalBoard() {
+        return current;
+    }
+
+    @Override
+    public IBoard getNextLocalBoard() {
+        return next;
+    }
+
+    @Override
+    public List<IBoard> getAvailableBoard() {
+        List<IBoard> bs = new ArrayList<>();
+        for (int i = 0; i < DIM; i++) {
+            for (int j = 0; j < DIM; j++) {
+                if(!boards[i][j].isGameOver()) bs.add(boards[i][j]);
+            }
+        }
+        // System.err.println("boards = " + bs.size());
+        return bs;
+    }
+
+
+    @Override
+    public String toString() {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < DIM; i++) {
+            builder.append("Line = ").append(i).append("\n");
+            for (int j = 0; j < DIM; j++) {
+                builder.append(boards[i][j]).append("\n----\n");
+            }
+        }
+        return builder.toString();
+    }
+
+    @Override
+    public IUltimateBoard copy() {
+        IBoard[][] boards = new Board[DIM][DIM];
+        int [][] wins = new int[DIM][DIM];
+
+        for (int i = 0; i < DIM; i++) {
+            for (int j = 0; j < DIM; j++) {
+                boards[i][j] = this.boards[i][j].copy();
+                wins[i][j] = this.wins[i][j];
+            }
+        }
+        IBoard c, p, n;
+        c = copyLocal(current);
+        p = copyLocal(previous);
+        n = copyLocal(next);
+        List<Move> origins = new ArrayList<>();
+        origins.addAll(this.origins);
+
+        return new UltimateBoard(boards, wins, origins, c, n, p, undoHappened, lastMove, lastPlayer);
+    }
+
+    private IBoard copyLocal(IBoard board){
+        if(board != null){
+            return board.copy();
+        }
+
+        return null;
+    }
+
+    @Override
+    public Move getLastMove() {
+        return lastMove;
+    }
+
+    @Override
+    public void setLastPlayer(int player) {
+
+    }
+
+    @Override
+    public int getLastPlayer() {
+        return lastPlayer;
+    }
+}
+
+
+interface IBoard {
+
+    void play(Move move, int player);
+    void undoMove(Move m);
+    boolean hasPlayerWon(int player);
+    int getWinner();
+    boolean isGameOver();
+    boolean isDraw();
+    List<Move> availableMoves();
+    Move getOrigin();
+    IBoard copy();
+    Move getLastMove();
+    int getLastPlayer();
+    void setLastPlayer(int player);
+}
+
+interface IUltimateBoard extends IBoard{
+
+    Move toLocalMove(Move global);
+    Move findOriginOfLocalBoardByMove(Move global);
+    Move toGlobalMove(Move local, Move origin);
+    IBoard getCurrentLocalBoard();
+    IBoard getNextLocalBoard();
+    List<IBoard> getAvailableBoard();
+    void setCurrentBoard(IBoard board);
+    IBoard getLocalBoard(Move global);
+    IBoard getPreviousBoard();
+
+}
+
+class Move {
+
+    private int row, col;
+
+    public Move(int row, int col) {
+        this.row = row;
+        this.col = col;
+    }
+
+    public int getRow() {
+        return row;
+    }
+
+    public int getCol() {
+        return col;
+    }
+
+    @Override
+    public String toString() {
+        return row + " " + col;
+    }
+}
